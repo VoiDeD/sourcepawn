@@ -21,6 +21,7 @@
 #include "compiled-function.h"
 #include "scripted-invoker.h"
 #include "legacy-image.h"
+#include "native-registry.h"
 
 namespace sp {
 
@@ -39,9 +40,10 @@ struct floattbl_t
 struct NativeEntry : public sp_native_t
 {
   NativeEntry()
-   : legacy_fn(nullptr)
+   : binding(nullptr)
   {}
-  SPVM_NATIVE_FUNC legacy_fn;
+  const NativeDef* binding;
+  Ref<NativeGroup> group;
 };
 
 /* Jit wants fast access to this so we expose things as public */
@@ -83,7 +85,6 @@ class PluginRuntime
   void SetNames(const char *fullname, const char *name);
   unsigned GetNativeReplacement(size_t index);
   ScriptedInvoker *GetPublicFunction(size_t index);
-  int UpdateNativeBinding(uint32_t index, SPVM_NATIVE_FUNC pfn, uint32_t flags, void *data) override;
   const sp_native_t *GetNative(uint32_t index) override;
   int LookupLine(ucell_t addr, uint32_t *line) override;
   int LookupFunction(ucell_t addr, const char **name) override;
@@ -91,6 +92,8 @@ class PluginRuntime
   const char *GetFilename() override {
     return full_name_.chars();
   }
+  bool BindNatives(const ke::Ref<INativeRegistry>& registry) override;
+  void MarkNativesOptional(const ke::Ref<INativeGroup>& group) override;
 
   NativeEntry* NativeAt(size_t index) {
     return &natives_[index];
@@ -165,4 +168,3 @@ class PluginRuntime
 } // sp
 
 #endif //_INCLUDE_SOURCEPAWN_JIT_RUNTIME_H_
-

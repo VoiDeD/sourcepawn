@@ -100,18 +100,9 @@ static cell_t DoNothing(IPluginContext *cx, const cell_t *params)
   return 1;
 }
 
-static void BindNative(IPluginRuntime *rt, const char *name, SPVM_NATIVE_FUNC fn)
+static cell_t PrintFloat(IPluginContext *cx, const cell_t *params, void* data)
 {
-  int err;
-  uint32_t index;
-  if ((err = rt->FindNativeByName(name, &index)) != SP_ERROR_NONE)
-    return;
-
-  rt->UpdateNativeBinding(index, fn, 0, nullptr);
-}
-
-static cell_t PrintFloat(IPluginContext *cx, const cell_t *params)
-{
+  assert(data == reinterpret_cast<void*>(data));
   return printf("%f\n", sp_ctof(params[1]));
 }
 
@@ -152,7 +143,7 @@ static cell_t ReportError(IPluginContext* cx, const cell_t *params)
   return 0;
 }
 
-static int Execute(const char *file)
+static int Execute(Ref<INativeRegistry> registry, const char *file)
 {
   char error[255];
   AutoPtr<IPluginRuntime> rt(sEnv->APIv2()->LoadBinaryFromFile(file, error, sizeof(error)));
@@ -161,15 +152,7 @@ static int Execute(const char *file)
     return 1;
   }
 
-  BindNative(rt, "print", Print);
-  BindNative(rt, "printnum", PrintNum);
-  BindNative(rt, "printnums", PrintNums);
-  BindNative(rt, "printfloat", PrintFloat);
-  BindNative(rt, "donothing", DoNothing);
-  BindNative(rt, "execute", DoExecute);
-  BindNative(rt, "invoke", DoInvoke);
-  BindNative(rt, "dump_stack_trace", DumpStackTrace);
-  BindNative(rt, "report_error", ReportError);
+  rt->BindNatives(registry);
 
   IPluginFunction *fun = rt->GetFunctionByName("main");
   if (!fun)
@@ -188,6 +171,18 @@ static int Execute(const char *file)
 
   return result;
 }
+
+SourcePawn::NativeDef sNatives[] = {
+  { "print",            Print },
+  { "printnum",         PrintNum },
+  { "printnums",        PrintNums },
+  { "donothing",        DoNothing },
+  { "execute",          DoExecute },
+  { "invoke",           DoInvoke },
+  { "dump_stack_trace", DumpStackTrace },
+  { "report_error",     ReportError },
+  { nullptr,            nullptr },
+};
 
 int main(int argc, char **argv)
 {
@@ -208,7 +203,11 @@ int main(int argc, char **argv)
   sEnv->SetDebugger(&debug);
   sEnv->InstallWatchdogTimer(5000);
 
-  int errcode = Execute(argv[1]);
+  Ref<INativeRegistry> registry = sEnv->NewNativeRegistry("shell");
+  registry->AddNativeList(nullptr, sNatives);
+  registry->AddRoutedNative(nullptr, "printfloat", PrintFloat, reinterpret_cast<void*>(0x1234));
+
+  int errcode = Execute(registry, argv[1]);
 
   sEnv->SetDebugger(NULL);
   sEnv->Shutdown();

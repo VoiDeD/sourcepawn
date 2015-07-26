@@ -1545,7 +1545,7 @@ Compiler::emitLegacyNativeCall(uint32_t native_index, NativeEntry* native)
   bool immutable = native->status == SP_NATIVE_BOUND &&
                    !(native->flags & (SP_NTVFLAG_EPHEMERAL|SP_NTVFLAG_OPTIONAL));
   if (!immutable) {
-    __ movl(edx, Operand(ExternalAddress(&native->legacy_fn)));
+    __ movl(edx, Operand(ExternalAddress(&native->binding)));
     __ testl(edx, edx);
     jumpOnError(zero, SP_ERROR_INVALID_NATIVE);
   }
@@ -1566,7 +1566,7 @@ Compiler::emitLegacyNativeCall(uint32_t native_index, NativeEntry* native)
 
   // Invoke the native.
   if (immutable)
-    __ call(ExternalAddress((void *)native->legacy_fn));
+    __ call(ExternalAddress((void *)native->binding->method));
   else
     __ call(edx);
   __ bind(&return_address);
