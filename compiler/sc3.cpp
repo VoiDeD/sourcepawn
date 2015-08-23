@@ -1638,7 +1638,7 @@ static int hier2(value *lval)
     methodmap_t *methodmap = methodmap_find_by_name(st);
     if (!methodmap)
       error(116, st);
-    else if (!methodmap->nullable)
+    else if (!methodmap->must_construct_with_new())
       error(171, methodmap->name);
     else if (!methodmap->ctor)
       error(172, methodmap->name);
@@ -1684,8 +1684,13 @@ static int hier2(value *lval)
     if (tag == pc_tag_void)
       error(144);
 
+    int paren = needtoken('(');
     lval->cmptag = tag;
     lvalue = hier12(lval);
+    if (paren)
+      needtoken(')');
+    else
+      matchtoken(')');
 
     if ((lval->tag & OBJECTTAG) || (tag & OBJECTTAG)) {
       matchtag(tag, lval->tag, MATCHTAG_COERCE);
@@ -2364,7 +2369,7 @@ restart:
             // Immediately fatal - no function to call.
             return error(172, sym->name);
           }
-          if (sym->methodmap->nullable) {
+          if (sym->methodmap->must_construct_with_new()) {
             // Keep going, this is basically a style thing.
             error(170, sym->methodmap->name);
           }
